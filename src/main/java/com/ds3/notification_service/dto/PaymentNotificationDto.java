@@ -1,8 +1,8 @@
 package com.ds3.notification_service.dto;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
+
+import lombok.Data;
 
 @Data
 public class PaymentNotificationDto {
@@ -14,4 +14,5 @@ public class PaymentNotificationDto {
     private String productName;
     private double amount;
     private LocalDateTime paymentTime;
+    private String paymentStatus;
 }

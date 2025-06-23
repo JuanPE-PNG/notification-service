@@ -1,10 +1,11 @@
 package com.ds3.notification_service.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.ds3.notification_service.dto.PaymentNotificationDto;
 import com.ds3.notification_service.entity.Receipt;
 import com.ds3.notification_service.repository.ReceiptRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 @Service
 public class ReceiptService {
@@ -47,6 +48,7 @@ public class ReceiptService {
         receipt.setAmount(paymentDto.getAmount());
         receipt.setPaymentTime(paymentDto.getPaymentTime());
         receipt.setReceiptContent(receiptContent);
+        receipt.setPaymentStatus(paymentDto.getPaymentStatus());
 
         return receiptRepository.save(receipt);
     }

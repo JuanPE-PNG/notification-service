@@ -1,15 +1,22 @@
 package com.ds3.notification_service.controller;
 
-import com.ds3.notification_service.dto.PaymentNotificationDto;
-import com.ds3.notification_service.service.ReceiptService;
-import com.ds3.notification_service.entity.Receipt;
-import com.ds3.notification_service.repository.ReceiptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import com.ds3.notification_service.dto.PaymentNotificationDto;
+import com.ds3.notification_service.dto.TokenValidationResponse;
+import com.ds3.notification_service.entity.Receipt;
+import com.ds3.notification_service.repository.ReceiptRepository;
+import com.ds3.notification_service.service.ReceiptService;
+import com.ds3.notification_service.service.TokenValidationService;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -17,12 +24,15 @@ public class NotificationController {
 
     private final ReceiptService receiptService;
     private final ReceiptRepository receiptRepository;
+    private final TokenValidationService tokenValidationService;
 
     @Autowired
     public NotificationController(ReceiptService receiptService,
-                                  ReceiptRepository receiptRepository) {
+                                  ReceiptRepository receiptRepository,
+                                  TokenValidationService tokenValidationService) {
         this.receiptService = receiptService;
-        this.receiptRepository = receiptRepository; // Inyección añadida
+        this.receiptRepository = receiptRepository;
+        this.tokenValidationService = tokenValidationService;
     }
 
     @PostMapping("/payment")
@@ -38,8 +48,12 @@ public class NotificationController {
     }
 
     @GetMapping("/receipts")
-    public ResponseEntity<List<Receipt>> getAllReceipts() {
-        List<Receipt> receipts = receiptRepository.findAllByOrderByCreatedAtDesc();
+    public ResponseEntity<?> getAllReceipts(@RequestHeader("Authorization") String authorization) {
+        TokenValidationResponse validation = tokenValidationService.validateAdminToken(authorization);
+        if (!validation.isValid() || !validation.isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Solo administradores pueden ver todos los recibos. " + validation.getMessage());
+        }
+        var receipts = receiptRepository.findByPaymentStatusOrderByCreatedAtDesc("Success");
         return ResponseEntity.ok(receipts);
     }
 
@@ -52,5 +66,28 @@ public class NotificationController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body("Recibo no encontrado para paymentId: " + paymentId);
         }
+    }
+
+    @GetMapping("/my-receipts")
+    public ResponseEntity<?> getMyReceipts(@RequestHeader("Authorization") String authorization) {
+        TokenValidationResponse validation = tokenValidationService.validateUserToken(authorization);
+        if (!validation.isValid()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token inválido: " + validation.getMessage());
+        }
+        // Extraer el customerId del token (asumimos que es el claim 'id')
+        String token = authorization.substring(7);
+        String customerId;
+        try {
+            // Decodificar el JWT sin validación (solo para demo, en prod usar una lib segura)
+            String[] parts = token.split("\\.");
+            String payloadJson = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            java.util.Map<String, Object> claims = mapper.readValue(payloadJson, java.util.Map.class);
+            customerId = String.valueOf(claims.get("id"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("No se pudo extraer el id del token: " + e.getMessage());
+        }
+        var receipts = receiptRepository.findByCustomerIdAndPaymentStatusOrderByCreatedAtDesc(customerId, "Success");
+        return ResponseEntity.ok(receipts);
     }
 }
