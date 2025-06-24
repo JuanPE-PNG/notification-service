@@ -48,7 +48,10 @@ public class NotificationController {
     }
 
     @GetMapping("/receipts")
-    public ResponseEntity<?> getAllReceipts(@RequestHeader("Authorization") String authorization) {
+    public ResponseEntity<?> getAllReceipts(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        if (authorization == null || authorization.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Se requiere autorización para acceder a este recurso");
+        }
         TokenValidationResponse validation = tokenValidationService.validateAdminToken(authorization);
         if (!validation.isValid() || !validation.isAdmin()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Solo administradores pueden ver todos los recibos. " + validation.getMessage());
@@ -69,7 +72,10 @@ public class NotificationController {
     }
 
     @GetMapping("/my-receipts")
-    public ResponseEntity<?> getMyReceipts(@RequestHeader("Authorization") String authorization) {
+    public ResponseEntity<?> getMyReceipts(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        if (authorization == null || authorization.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Se requiere autorización para acceder a este recurso");
+        }
         TokenValidationResponse validation = tokenValidationService.validateUserToken(authorization);
         if (!validation.isValid()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token inválido: " + validation.getMessage());
